@@ -126,29 +126,33 @@ shinyServer(function(input, output, session){
           myPal <- cols(length(unique(input.fig$tax)))
           p <- p + geom_bar(aes(x = sample, y = proportion, fill = tax), stat='identity') + ylab("Proportion") + scale_fill_manual(values = myPal) 
         }
+
+
+
+
+        if(input$plot_type == "NMDS"){ 
+          set.seed(1234)
+          data = input.fig %>% spread(sample, proportion)
+          meta.nmds.data <- metaMDS(t(data[,-1])) 
+          NMDS.data =  as.data.frame(t(data[0,]))
+          NMDS.data = data.frame(NMDS1 = meta.nmds.data$points[,1], NMDS2 = meta.nmds.data$points[,2],sample= rownames(meta.nmds.data$points))
+         #NMDS.data$prevotella = colSums(data[grepl("Prevotella", data$tax),-1])
+         #NMDS.data$bacteroides = colSums(data[grepl("Bacteroides", data$tax),-1])
+
+          library(ggrepel)
+
+          p <- ggplot(NMDS.data, aes(x = NMDS1, y = NMDS2, label = sample))  + 
+                theme_classic() + 
+                geom_point(alpha = 0.5,size = 5) + geom_text_repel() + 
+                theme(axis.text.x=element_text(size=input$x_label_size), 
+                  axis.text.y=element_text(size=input$y_label_size)) + 
+                ggtitle("") + coord_fixed() #+background_grid(major = "xy", minor = "none")  
+        }         
       print(p)  
     })
   })
 })      
-  #     if(input$plot_type == "NMDS"){ 
-  #         set.seed(1234)
-  #         if(length(input$select) > 0){species = species[,colnames(species) %in% c(input$select,"tax")]}
-  #         data = species
-  #         meta.nmds.data <- metaMDS(t(data[,-1])) 
-  #         NMDS.data =  as.data.frame(t(data[0,]))
-  #         NMDS.data = data.frame(NMDS1 = meta.nmds.data$points[,1], NMDS2 = meta.nmds.data$points[,2],sample= rownames(meta.nmds.data$points))
-  #        #NMDS.data$prevotella = colSums(data[grepl("Prevotella", data$tax),-1])
-  #        #NMDS.data$bacteroides = colSums(data[grepl("Bacteroides", data$tax),-1])
 
-  #         library(ggrepel)
-
-  #         p <- ggplot(NMDS.data, aes(x = NMDS1, y = NMDS2, label = sample))  + 
-  #               theme_classic() + 
-  #               geom_point(alpha = 0.5,size = 5) + geom_text_repel() + 
-  #               theme(axis.text.x=element_text(size=input$x_label_size), 
-  #                 axis.text.y=element_text(size=input$y_label_size)) + 
-  #               ggtitle("") + coord_fixed() #+background_grid(major = "xy", minor = "none")  
-  #         print(p)
   #     }
   #     if(input$plot_type == "geom_bar_TOP10" | input$plot_type == "geom_bar_TOP10_sample" ){ 
   #       if(length(input$select) > 0){ species.long = species.long[species.long$sample %in% c(input$select,"tax"),]}
