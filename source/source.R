@@ -1,6 +1,12 @@
-library(tidyverse)
-library(shiny)
-library(RColorBrewer)
+if (!require("tidyverse")) install.packages('tidyverse'); library(tidyverse)
+if (!require("shiny")) install.packages('shiny'); library(shiny)
+if (!require("vegan")) install.packages('vegan'); library(vegan)
+if (!require("ggplot2")) install.packages('ggplot2'); library(ggplot2)
+if (!require("RColorBrewer")) install.packages('RColorBrewer'); library(RColorBrewer)
+if (!require("ggrepel")) install.packages('ggrepel'); library(ggrepel)
+if (!require("DT")) install.packages('DT'); library(DT)
+
+
 
 fun.read.count <- function(file.bion = ""){
 	if(nchar(file.bion) == 0){bion.orig <- read.table("BION.taxmap.species.tsv", sep = "\t", header=T, comment.char="")} else {bion.orig <- read.table(paste0(file.bion), sep = "\t", header=T, comment.char="")}
@@ -16,10 +22,6 @@ fun.read.count <- function(file.bion = ""){
 
 get.data <- function(level, longnames = F, cutoff = "", file.bion = ""){
 	options(warn=-1)
-	library(tidyverse)
-	library(vegan)
-	#library(reshape2)
-	#library(data.table)
 	if("mean" %in% ls()){rm(mean)}
 
 
@@ -72,10 +74,5 @@ get.data <- function(level, longnames = F, cutoff = "", file.bion = ""){
 	return(data)
 }
 
-# species = get.data(level = "species", file.bion = "raw_data/BION.taxmap.species.tsv")
-# species.long <- species %>% gather(-tax, key = "sample", value = "proportion") #alternatiiv: species.long = melt(species) #pakett - reshape
-# species.long$sample = factor(species.long$sample, levels = unique(species.long$sample))
-# un.genera = unique(gsub("g__| s__.*$|_..*","",species.long$tax))
-# un.species = unique(gsub("g__|s__","",species.long$tax))
 
 

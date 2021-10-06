@@ -1,7 +1,6 @@
 library(shiny)
 
 shinyUI(fluidPage(
-
   titlePanel("Microbiome plots"),   
       sidebarLayout(
         sidebarPanel(
@@ -12,18 +11,12 @@ shinyUI(fluidPage(
                 multiple = F,
                 accept = c(".tsv","text/csv", "text/comma-separated-values,text/plain"))),
           uiOutput("choose_level"),
-          uiOutput("select_allsamples"),          
+          uiOutput("select_allsamples"),   
           uiOutput("select_sample"),
-          uiOutput("select_top10"),  
-          uiOutput("search"),
-          #selectInput('selector', 'Select samples selectInput', choices = "", multiple=TRUE, selectize=TRUE),
-          # selectInput('choose_level', 'Choose search level', c("genus","species")),
-          # conditionalPanel(
-          #   condition="input.choose_level=='species'",
-          #   selectInput('species', 'Choose species', NULL, multiple=TRUE, selectize=TRUE)),
-          # conditionalPanel(
-          #   condition="input.choose_level=='genus'",
-          #   selectInput('genus', 'Choose genus/genera', NULL, multiple=TRUE, selectize=TRUE)),
+          conditionalPanel(
+            condition="input.plot_type!='NMDS'",
+            uiOutput("select_top10"),  
+            uiOutput("search")),
           selectInput('plot_type', 'Choose plot', c("geom_bar", "geom_tile", "geom_point", "NMDS")),
           conditionalPanel(
             condition="input.plot_type=='geom_tile'",
@@ -50,9 +43,8 @@ shinyUI(fluidPage(
           downloadButton("downloadFig", "Download")
         ),
         mainPanel(
-          plotOutput(outputId = "ggplot")
+          plotOutput(outputId = "ggplot", width = 500)
           #DT::dataTableOutput("React_Out")
-          #DTOutput('tbl')
         )
       )
 )

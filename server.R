@@ -1,11 +1,6 @@
-
-library(shiny)
-library(ggplot2)
 source(file.path("source","source.R"), local = T)
 
-
 shinyServer(function(input, output, session){
-
 
   reactive_level.select = reactive({
     req(input$c_level)
@@ -14,20 +9,25 @@ shinyServer(function(input, output, session){
 
   reactive_data = reactive({
     req(reactive_level.select())
-    if(input$select_data=="Example" | is.null(input$file.bion$datapath)){
-      get.data(level = reactive_level.select(), file.bion = "raw_data/BION.taxmap.species.tsv")} else {
-      get.data(level = reactive_level.select(), file.bion = ifelse(input$select_data=="Import data" & !is.null(input$file.bion$datapath), input$file.bion$datapath,"raw_data/BION.taxmap.species.tsv"))}
+    #if(input$select_data=="Example" | is.null(input$file.bion$datapath)){
+    if(input$select_data=="Example"){
+    get.data(level = reactive_level.select(), file.bion = "raw_data/BION.taxmap.species.tsv")} else if (input$select_data=="Import data" & !is.null(input$file.bion$datapath)) {  
+      get.data(level = reactive_level.select(), file.bion = input$file.bion$datapath)} else {c()}
     })
 
 
+
   reactive_data.long = reactive({
-    reactive_data() %>% gather(-tax, key = "sample", value = "proportion") %>% mutate(sample = factor(sample, levels = unique(sample))) #alternatiiv: species.long = melt(species) #pakett - reshape
+    req(reactive_data())
+    reactive_data() %>%
+      gather(-tax, key = "sample", value = "proportion") %>% 
+      mutate(sample = factor(sample, levels = unique(sample))) %>% #alternatiiv: melt(species) #pakett - reshape
+      filter(sample %in% input$s_sample) #filtreerime proove siin
   })  
 
   reactive_data.long.select = reactive({
     x = reactive_data.long()
     x <- x %>% filter(tax %in% input$search)
-    x <- x %>% filter(sample %in% input$s_sample)
     x
   })  
 
@@ -45,19 +45,20 @@ shinyServer(function(input, output, session){
     output$choose_level <- renderUI({
       selectizeInput("c_level", "Select taxonomy level:", multiple=F, choices = c("species", "genus", "phylum"))
     })  
+    #print(unique(reactive_top10data()$sample))
   })
+
+
 
   observe({
     req(reactive_data()) #UI plokk joonistatakse vaid andmete olemasolu korral
     
-    output$select_top10 <- renderUI({
-      checkboxInput("s_top10", "Select TOP10 taxa", FALSE)
-    })  
-
     output$select_allsamples <- renderUI({
-      checkboxInput("s_allsamples", "Select all samples", FALSE)
+      checkboxInput("s_allsamples", "Select all samples", TRUE)
     })  
-
+    output$select_top10 <- renderUI({
+      if(nrow(reactive_data.long()) > 0) {checkboxInput("s_top10", "Select TOP10 taxa", TRUE)}
+    })  
     output$select_sample <- renderUI({
       selectizeInput("s_sample", "Select samples:", multiple=TRUE, choices = colnames(reactive_data())[-1])
     })  
@@ -69,6 +70,7 @@ shinyServer(function(input, output, session){
   })
 
   observe({
+    #req(reactive_data.long()) #UI plokk joonistatakse vaid andmete olemasolu korral
     #req(reactive_data.long.select())
     output$React_Out = DT::renderDataTable({
       DT::datatable(reactive_data.long.select(), filter = "top")
@@ -76,35 +78,56 @@ shinyServer(function(input, output, session){
   })
 
 
-  observeEvent(input$s_allsamples,{
-    
+
+  observe({
+    req(input$s_allsamples) 
     if (input$s_allsamples == T){
       x <- colnames(reactive_data())[-1]
     updateSelectizeInput(session, "s_sample", selected = x, options = list())
     } else {updateSelectizeInput(session, "s_sample", selected = "", options = list())}
   })
+#eemaldab checkbox linnukese, kui valitud proovid ei ole enam kõik proovid
+  observe({
+    req(input$s_sample) 
+    if (!identical(input$s_sample, colnames(reactive_data())[-1])){
+      updateCheckboxInput(session,"s_allsamples", "Select all samples", FALSE)}
+  })
+  
+  # observe({ #kontrollplokk
+  #   req(input$s_sample) 
+  #   print(paste("input",input$s_sample))
+  #   print(paste("reactive_data", colnames(reactive_data())[-1]))
+  #   print(identical(input$s_sample, colnames(reactive_data())[-1]))
+  #   })
 
 
-  observeEvent(input$s_top10,{
-    
+  #observeEvent(input$s_top10,{
+  observe({
+    req(input$s_top10) #observeEvent korral pole seda vaja
     if (input$s_top10 == T){
       x <- unique(reactive_top10data()$tax)
       updateSelectizeInput(session, "search", selected = x, options = list())
     } else {updateSelectizeInput(session, "search", selected = "", options = list())}
   })
-
+#eemaldab checkbox linnukese, kui taxad ei ole enam top10
+  observe({
+    req(input$search) 
+    if (!identical(input$search, as.character(unique(reactive_top10data()$tax)))){
+      updateCheckboxInput(session,"s_top10", "Select TOP10 taxa", FALSE)}
+  })
 
   output$out <- renderPrint(paste0(
     length(input$select)
   ))
 
   observe({
-    output$ggplot <- renderPlot({
-      input.fig = reactive_data.long.select()
-      input.fig$tax = gsub("g__|s__","",input.fig$tax)
-
-         a.ratio = length(unique(input.fig$tax)) / (length(unique(input.fig$sample)))
-         p <- ggplot(input.fig, aes(x = tax, y = sample)) + 
+    if(input$plot_type == "NMDS"){input.fig = reactive_data.long()} else {input.fig = reactive_data.long.select()} #NMDS joonisel lähevad arvesse kõik taksonoomiad, selekteerida pole vaja
+      input.fig$tax = gsub("p__|g__|s__","",input.fig$tax)
+    #print(nrow(input.fig)) #kontroll
+    if(nrow(input.fig) > 0){
+      output$ggplot <- renderPlot({
+        a.ratio = length(unique(input.fig$tax)) / (length(unique(input.fig$sample)))
+        p <- ggplot(input.fig, aes(x = tax, y = sample)) + #teeme alusgraafiku (ei kasuta NMDS joonisel)
              theme_classic() + 
              theme(axis.text.x=element_text(angle=90, hjust=1, vjust = 0.5, size=input$x_label_size), 
                axis.text.y=element_text(size=input$y_label_size), 
@@ -127,9 +150,6 @@ shinyServer(function(input, output, session){
           p <- p + geom_bar(aes(x = sample, y = proportion, fill = tax), stat='identity') + ylab("Proportion") + scale_fill_manual(values = myPal) 
         }
 
-
-
-
         if(input$plot_type == "NMDS"){ 
           set.seed(1234)
           data = input.fig %>% spread(sample, proportion)
@@ -143,53 +163,29 @@ shinyServer(function(input, output, session){
 
           p <- ggplot(NMDS.data, aes(x = NMDS1, y = NMDS2, label = sample))  + 
                 theme_classic() + 
-                geom_point(alpha = 0.5,size = 5) + geom_text_repel() + 
+                geom_point(alpha = 0.3,size = 5) + geom_text_repel() + 
                 theme(axis.text.x=element_text(size=input$x_label_size), 
                   axis.text.y=element_text(size=input$y_label_size)) + 
-                ggtitle("") + coord_fixed() #+background_grid(major = "xy", minor = "none")  
+                ggtitle("") #+ coord_fixed() #+background_grid(major = "xy", minor = "none")  
         }         
-      print(p)  
-    })
+        p #joonistab ploti
+      }, height = as.numeric(input$fig_height), width = as.numeric(input$fig_width)
+      )
+    } 
+    output$downloadFig <- downloadHandler(
+      filename = function() {
+        paste0(input$c_level,"_", input$plot_type, ifelse(input$fig_format == "png",".png",".pdf"))
+      },
+      content = function(file) {
+        ggsave(file, width = as.numeric(input$fig_width)/72, height = as.numeric(input$fig_height)/72, units = "in")
+      }
+    )
   })
 })      
 
-  #     }
-  #     if(input$plot_type == "geom_bar_TOP10" | input$plot_type == "geom_bar_TOP10_sample" ){ 
-  #       if(length(input$select) > 0){ species.long = species.long[species.long$sample %in% c(input$select,"tax"),]}
-  #         species.long$sample = factor(species.long$sample, levels = unique(species.long$sample))
-  #         input.fig = species.long[gsub("g__| s__.*$|_..*","",species.long$tax) %in% input$genus,]
-  #     }   
-  #     if(input$plot_type == "geom_bar_TOP10"){ 
-  #       input.fig <- species.long %>% 
-  #         group_by(tax) %>%
-  #         mutate(avg.tax = mean(proportion)) %>%
-  #         arrange(desc(avg.tax)) %>% 
-  #         group_by(sample) %>%
-  #         slice(1:10) %>%
-  #         mutate(tax= gsub("g__|s__","",tax))
-        
-  #       cols <- colorRampPalette(brewer.pal(12, "Set3"))
-  #       myPal <- cols(length(unique(input.fig$tax)))
-  #       a.ratio = length(unique(input.fig$tax)) / (length(unique(input.fig$sample)))
-  #       p <- ggplot(input.fig, aes(x = tax, y = sample)) +  
-  #            theme_classic() + 
-  #            geom_bar(aes(x = sample, y = proportion, fill = tax), stat='identity') + 
-  #            scale_fill_manual(values = myPal) + 
-  #            theme(axis.text.x=element_text(angle=90, hjust=1, vjust = 0.5, size=input$x_label_size), 
-  #             axis.text.y=element_text(size=input$y_label_size), 
-  #             aspect.ratio = a.ratio)  + ylab("Proportion") + xlab("") #+ theme(aspect.ratio=1/3) 
-  #       print(p)
-  #     }
-  #   }, height = as.numeric(input$fig_height), width = as.numeric(input$fig_width)) #
 
-  
+#bugid: import data valikuga (enne faili avamata) näidatakse näidisjoonist - lahendamisel
 
-    # output$downloadFig <- downloadHandler(
-    #   filename = function() {
-    #     paste0(paste0(input$genus, collapse = "_"),".", input$plot_type, ifelse(input$fig_format == "png",".png",".pdf"))
-    #   },
-    #   content = function(file) {
-    #     ggsave(file, width = as.numeric(input$fig_width)/72, height = as.numeric(input$fig_height)/72, units = "in")
-    #   }
-    # )
-
+#bugid korras: select top10 nupu väljalülitamine ei eemalda taxasid. Select all samples - sama teema. Vb tekkis observeEvent eemaldamisega
+#bugid korras: graafiku tüübi muutmise järgselt ei uuendata enam proovide valiku muutmisel joonise sisendfaile ning kaob ära top10 valiku esitlus.
+#bugid korras: input vahetamise ei uuendata automaatselt kõikide proovide nimekirja, kuigi select_all_samples on by default sees.
