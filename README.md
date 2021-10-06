@@ -7,3 +7,11 @@ runGitHub('MicrobiomePlots','madisjaagura')
 
 # R-console: 
 shiny::runGitHub('MicrobiomePlots','madisjaagura')
+
+# Required libraries
+"tidyverse"
+"shiny"
+"vegan"
+"ggplot2"
+"RColorBrewer"
+"ggrepel"
