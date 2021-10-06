@@ -15,3 +15,4 @@ shiny::runGitHub('MicrobiomePlots','madisjaagura')
 "ggplot2"
 "RColorBrewer"
 "ggrepel"
+"DT"
