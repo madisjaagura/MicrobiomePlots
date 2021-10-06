@@ -3,10 +3,10 @@
 You may download the repository and run the Shiny app in R/RStudio on your local system, or run the following commands in your Terminal or R console:
 
 # Terminal: 
-runGitHub('MicrobiomePlots','madisjaagura')
+runGitHub('MicrobiomePlots','madisjaagura',ref="main")
 
 # R-console: 
-shiny::runGitHub('MicrobiomePlots','madisjaagura')
+shiny::runGitHub('MicrobiomePlots','madisjaagura',ref="main")
 
 # Required libraries
 "tidyverse"
